@@ -47,7 +47,7 @@ header small{ color:var(--muted); font-size:.85rem; }
   transition: background-color .15s;
 }
 .sign .label{ font-size:2.1rem; font-weight:700; letter-spacing:-0.02em; line-height:1.2; }
-#caption{ display:none; margin:10px 0 0; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.08); font-size:1.15rem; font-weight:600; line-height:1.45; text-align:center; }
+#caption{ display:none; margin:12px 0 0; padding:16px 16px; border-radius:14px; background:#fff8db; color:#1b1d22; border:2px solid #f5c400; font-size:1.35rem; font-weight:700; line-height:1.5; text-align:center; word-break:keep-all; }
 #caption.on{ display:block; }
 .sign .sub{ margin-top:6px; font-size:1rem; opacity:.92; min-height:1.55em; }
 .sign.ok{ background:var(--sign-green); }
@@ -239,7 +239,7 @@ function ensureAudio(){
   if (!audioCtx){
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     // 카메라·마이크를 켜거나 다른 앱 소리 때문에 막히면 자동으로 다시 풀기 시도
-    audioCtx.onstatechange = () => { if (audioCtx.state !== "running" && running) checkSound(); };
+    audioCtx.onstatechange = () => { note("소리 장치 " + audioCtx.state); if (audioCtx.state !== "running" && running && !ttsBusy()) checkSound(); };
   }
   if (audioCtx.state !== "running") audioCtx.resume().catch(() => {});
 }
@@ -251,14 +251,15 @@ function playSilent(){
   } catch (e) {}
 }
 // 소리가 막혀 있으면 풀기 시도 후, 그래도 막혀 있으면 안내 표시
+function ttsBusy(){ return speakingNow.length > 0 || ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)); }
 function checkSound(){
-  if (!audioCtx) return;
-  if (audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+  if (!audioCtx || ttsBusy()) return;
+  if (audioCtx.state !== "running"){ note("소리 장치 다시 켜기"); audioCtx.resume().catch(() => {}); }
   setTimeout(() => { if (audioCtx.state !== "running") $("soundBlock").classList.remove("hidden"); }, 500);
 }
 document.addEventListener("pointerdown", () => {
   if (!audioCtx) return;
-  if (audioCtx.state !== "running" || !$("soundBlock").classList.contains("hidden")){
+  if (!ttsBusy() && (audioCtx.state !== "running" || !$("soundBlock").classList.contains("hidden"))){
     audioCtx.resume().catch(() => {}); playSilent();
     if ("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "ko-KR"; speechSynthesis.speak(u); }
     setTimeout(() => { if (audioCtx.state === "running") $("soundBlock").classList.add("hidden"); }, 300);
@@ -303,19 +304,29 @@ const SOUND_SRC = {
   ding: () => synth(0.5, t => Math.sin(2 * Math.PI * 1175 * t) * 0.5 * env(t, 0, 0.45)),
   bbik: () => synth(0.4, t => { const on = (t < 0.12) || (t >= 0.2 && t < 0.32); return on ? (Math.sin(2 * Math.PI * 1600 * t) > 0 ? 0.32 : -0.32) : 0; }),
 };
-const sounds = {}, brokenSnd = {};
+const sounds = {}, brokenSnd = {}, soundURL = {}, soundDur = {};
+let SILENT_URL = null;
 function initSounds(){
   if (sounds.car) return;
-  for (const k in SOUND_SRC){ const a = new Audio(wavURL(SOUND_SRC[k]())); a.preload = "auto"; a.setAttribute("playsinline", ""); a.onerror = () => { brokenSnd[k] = true; }; sounds[k] = a; }
+  SILENT_URL = wavURL(new Float32Array(Math.round(SR_RATE * 0.05)));
+  for (const k in SOUND_SRC){
+    const d = SOUND_SRC[k]();
+    soundURL[k] = wavURL(d); soundDur[k] = d.length / SR_RATE * 1000;
+    const a = new Audio(soundURL[k]); a.preload = "auto"; a.setAttribute("playsinline", ""); a.onerror = () => { brokenSnd[k] = true; }; sounds[k] = a;
+  }
 }
 // 버튼을 누른 순간 모든 소리를 무음으로 한 번씩 재생해 "재생 허락"을 받아둠
 function unlockFiles(){
   initSounds();
+  // 실제 소리 대신 '무음 파일'을 한 번씩 재생해서 허락만 받고, 끝나면 원래 소리로 되돌림 (첫 화면에서 소리 안 남)
   for (const k in sounds){
-    const a = sounds[k]; a.muted = true;
-    const pr = a.play();
-    if (pr && pr.then) pr.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
-    else { a.pause(); a.currentTime = 0; a.muted = false; }
+    const a = sounds[k];
+    const back = () => { try { a.pause(); a.src = soundURL[k]; a.load(); } catch (e) {} };
+    try {
+      a.src = SILENT_URL; a.muted = false;
+      const pr = a.play();
+      if (pr && pr.then) pr.then(back).catch(back); else back();
+    } catch (e) { back(); }
   }
 }
 const FALLBACK = { bbik: () => { tone(1600, 0, 0.12, "square", 0.2); tone(1600, 0.2, 0.12, "square", 0.2); }, car: () => carAlert(), siren: () => siren(1.2, 0.6), sirenLong: () => siren(2, 0.8), chime: () => chime(), ding: () => tone(1175, 0, 0.45, "sine", 0.4) };
@@ -323,12 +334,13 @@ function playSnd(k){
   initSounds();
   const a = sounds[k];
   if (brokenSnd[k]) { FALLBACK[k](); return; }
-  const durMs = (a && isFinite(a.duration) && a.duration > 0) ? a.duration * 1000 : 1500;
+  const durMs = soundDur[k] || 1500;
+  note("효과음 " + k);
   sndBusyUntil = Math.max(sndBusyUntil, performance.now() + durMs);
   try {
     a.muted = false; a.currentTime = 0;
     const pr = a.play();
-    if (pr && pr.catch) pr.catch(() => { FALLBACK[k](); checkSound(); });
+    if (pr && pr.catch) pr.catch(e => { diag(`[효과음 실패] ${k} · ${e && e.name || "알 수 없음"} · 무음 모드 확인`); FALLBACK[k](); checkSound(); });
   } catch (e) { FALLBACK[k](); }
 }
 function stopSounds(){ for (const k in sounds){ try { sounds[k].pause(); sounds[k].currentTime = 0; } catch (e) {} } }
@@ -366,9 +378,29 @@ function siren(sec = 1.2, vol = 0.6){
 }
 
 /* ---------- 음성 ---------- */
-let ttsWarned = false;
-let lastMicEndAt = 0, sndBusyUntil = 0, ttsSlowWarned = false;
+let lastMicEndAt = 0, sndBusyUntil = 0, ttsStuck = false;
 const speakingNow = [];   // 말하는 문장을 끝날 때까지 붙잡아 둠 (아이폰에서 중간에 사라지는 문제 방지)
+/* ---------- 문제 진단: 잘 안 될 때만 기록에 원인을 자세히 남김 ---------- */
+const recent = [];   // 최근 일어난 일 (효과음, 소리 장치, 카메라 등)
+function note(what){ recent.push({ t: performance.now(), what }); if (recent.length > 30) recent.shift(); }
+function recentSince(t0){
+  const r = recent.filter(e => e.t >= t0 - 300).map(e => e.what);
+  return r.length ? [...new Set(r)].slice(-3).join(", ") : "특이사항 없음";
+}
+let diagCount = 0, diagInfoShown = false;
+const DEBUG = QS.has("debug");   // 점검용 주소(?debug=1)에서만 원인 기록 표시
+function diag(msg){
+  if (!DEBUG || diagCount >= 12) return;   // 기록이 너무 길어지지 않게
+  diagCount++;
+  if (!diagInfoShown){
+    diagInfoShown = true;
+    const ios = (navigator.userAgent.match(/OS (\d+)_(\d+)/) || []).slice(1).join(".");
+    const kv = ("speechSynthesis" in window) ? speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith("ko")) : [];
+    log(`[기기] ${IS_IOS ? "아이폰 iOS " + (ios || "?") : (/Android/i.test(navigator.userAgent) ? "안드로이드" : "PC")} · 한국어 음성 ${kv.length}개${kv[0] ? " (" + kv[0].name + ")" : ""} · 소리 장치 ${audioCtx ? audioCtx.state : "없음"}`);
+  }
+  log(msg);
+}
+const short = t => { const x = t.trim(); return x.length > 12 ? x.slice(0, 12) + "…" : x; };
 function showCaption(text){
   let c = $("caption");
   if (!c){ c = document.createElement("div"); c.id = "caption"; $("sign").after(c); }
@@ -384,31 +416,54 @@ function speak(text, rate = 1.0){
     // 마이크를 막 쓴 직후라면 잠깐 쉬기
     const gap = 600 - (performance.now() - lastMicEndAt);
     if (gap > 0) await sleep(gap);
-    if (speechSynthesis.pending && !speechSynthesis.speaking) speechSynthesis.cancel();   // 막힌 대기열만 정리
+    // 앞 문장이 아직 나오는 중이면 지우지 않고 끝날 때까지 기다림 (아이폰은 시작·끝 신호를 늦게 주기도 함)
+    for (let w = 0; w < 80 && speechSynthesis.speaking; w++) await sleep(100);
+    // 소리 없이 막혀 있을 때만 대기열 정리
+    if (!speechSynthesis.speaking && (ttsStuck || speechSynthesis.pending)){ note("음성 대기열 정리"); speechSynthesis.cancel(); await sleep(150); }
+    ttsStuck = false;
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "ko-KR"; u.rate = rate; u.volume = 1;
     const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().replace("_", "-").startsWith("ko"));
     if (v) u.voice = v;
     speakingNow.push(u);
-    let done = false, started = false;
+    const chars = text.replace(/\s/g, "").length;
+    const expect = Math.max(800, chars * 150 / rate);   // 대략 말하는 데 걸리는 시간
+    const t0 = performance.now();
+    let done = false, started = false, tStart = 0;
     const fin = () => {
       if (done) return; done = true;
       const k = speakingNow.indexOf(u); if (k >= 0) speakingNow.splice(k, 1);
       setTimeout(() => { if ($("caption") && $("caption").textContent === text) showCaption(""); }, 1500);
       res();
     };
-    u.onstart = () => { started = true; };
-    u.onend = fin;
-    u.onerror = e => {
-      if (!ttsWarned && e.error !== "interrupted" && e.error !== "canceled"){ ttsWarned = true; log(`음성 안내 오류 (${e.error || "알 수 없음"}) · 무음 모드·볼륨 확인 필요`); }
+    u.onstart = () => { started = true; tStart = performance.now(); };
+    u.onend = () => {
+      ttsStuck = false;
+      const dur = performance.now() - (tStart || t0);
+      if (chars > 6 && dur < expect * 0.4)
+        diag(`[음성 끊김] "${short(text)}" · ${(dur / 1000).toFixed(1)}초 만에 끝남(보통 ${(expect / 1000).toFixed(1)}초) · 그때: ${recentSince(tStart || t0)}`);
       fin();
     };
+    u.onerror = e => {
+      const dur = performance.now() - (tStart || t0);
+      diag(`[음성 오류] ${e.error || "알 수 없음"} · "${short(text)}" · ${(dur / 1000).toFixed(1)}초 시점 · 그때: ${recentSince(t0)}`);
+      fin();
+    };
+    // 시작 신호가 없어도 실제로 말하는 중이면 시작된 것으로 봄
+    const watch = setInterval(() => { if (done) { clearInterval(watch); return; } if (!started && speechSynthesis.speaking){ started = true; tStart = performance.now(); } }, 100);
     // 소리가 시작되지 않아도 오래 붙잡지 않고 진행 (자막은 남아 있음)
-    setTimeout(() => { if (!started && !done){ if (!ttsSlowWarned){ ttsSlowWarned = true; log("음성 안내가 늦거나 나오지 않음 · 무음 모드·볼륨 확인 필요"); } fin(); } }, 3000);
+    setTimeout(() => { if (!started && !done && !speechSynthesis.speaking){
+      ttsStuck = true;
+      diag(`[음성 안 나옴] "${short(text)}" · 3초간 시작 안 됨 · 말하는중=${speechSynthesis.speaking ? "예" : "아니오"} 대기=${speechSynthesis.pending ? "예" : "아니오"} · 그때: ${recentSince(t0)} · 무음 모드·볼륨 확인`);
+      fin(); } }, 3000);
     // 아무리 길어도 이 시간이 지나면 다음으로
-    setTimeout(fin, 2500 + text.replace(/\s/g, "").length * 200 / rate);
+    setTimeout(() => { if (!done){
+      if (speechSynthesis.speaking){ fin(); return; }   // 아직 말하는 중이면 지우지 않고 다음으로 (다음 말은 이게 끝나길 기다림)
+      ttsStuck = true;
+      diag(`[음성 멈춤] "${short(text)}" · 말 시작 후 끝 신호 없음 · 그때: ${recentSince(tStart || t0)}`);
+      fin(); } }, 2500 + chars * 200 / rate);
     speechSynthesis.speak(u);
-    if (speechSynthesis.paused) speechSynthesis.resume();
+    if (speechSynthesis.paused){ note("음성 일시정지 상태 → 재개"); speechSynthesis.resume(); }
   });
 }
 let srWarned = false, currentRec = null;
@@ -919,13 +974,13 @@ async function camWatchdog(now){
       log("카메라 재연결 3회 실패");
       lastFrameAt = performance.now() + 60000; camFixing = false; return;
     }
-    log("카메라 화면 멈춤 · 다시 연결");
+    diag(`[카메라] ${ended ? "카메라 꺼짐" : ((frozen / 1000).toFixed(0) + "초간 화면 멈춤")} · 다시 연결 · 그때: ${recentSince(now - frozen)}`); note("카메라 다시 연결");
     try { await openCamera(); lastVideoTime = -1; }
     catch (e){ setSign("danger", "카메라를 다시 켜지 못했습니다", "새로고침 후 다시 시작해 주세요"); }
     lastFrameAt = performance.now(); camFixing = false;
   }
 }
-video.addEventListener("pause", () => { if (running && stream) video.play().catch(() => {}); });
+video.addEventListener("pause", () => { note("카메라 화면 일시정지"); if (running && stream) video.play().catch(() => {}); });
 
 function errMsg(e){
   if (!window.isSecureContext) return "https 주소에서 열어야 카메라를 쓸 수 있습니다";
@@ -1012,6 +1067,7 @@ async function start(){
   calibRetry = 0; faceStreak = 0; calibToken++;
   count = 0; events = []; $("sCount").textContent = "0"; $("sLast").textContent = "-";   // 시작할 때마다 운행 기록 초기화
   stage = 0; closed = false; lastVideoTime = -1; lastFaceAt = 0; basePitch = null; calibPitch = [];
+  diagCount = 0; diagInfoShown = false;
   log("── 새 운행 시작 ──");
   introFlow(calibToken);
 
@@ -1159,6 +1215,7 @@ $("exitBtn").addEventListener("click", () => { if (testing) cancelTest(); else s
 $("testBtn").addEventListener("click", experience);
 // 다른 앱(내비 등)으로 넘어가거나 화면이 꺼지면 브라우저가 카메라를 멈춤 → 돌아오면 자동 복구
 document.addEventListener("visibilitychange", async () => {
+  note(document.visibilityState === "hidden" ? "화면 벗어남" : "화면 돌아옴");
   if (!running) return;
   if (document.visibilityState === "hidden"){
     log("화면을 벗어나 감지가 일시 중지됨 · 이 화면을 켜둔 상태에서만 작동합니다");
