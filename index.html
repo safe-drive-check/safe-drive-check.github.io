@@ -55,6 +55,9 @@ header small{ color:var(--muted); font-size:.85rem; }
 .sign.danger{ background:var(--sign-red); }
 
 .block{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:12px; }
+.vwrap{ position:relative; }
+#ttsOverlay{ display:none; position:absolute; inset:0; border-radius:8px; background:rgba(0,0,0,.45); color:#fff; font-size:1.4rem; font-weight:700; align-items:center; justify-content:center; }
+#ttsOverlay.on{ display:flex; }
 video{ width:100%; display:block; border-radius:8px; transform:scaleX(-1); background:#000; aspect-ratio:4/3; object-fit:cover; }
 .meter-head{ display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin:12px 0 6px; }
 .meter{ height:10px; background:var(--line); border-radius:5px; position:relative; overflow:visible; }
@@ -152,7 +155,7 @@ h2{ font-size:.95rem; margin:0 0 6px; }
 
   <div id="runScreen" class="hidden">
   <div class="block">
-    <video id="video" playsinline muted></video>
+    <div class="vwrap"><video id="video" playsinline muted></video><div id="ttsOverlay">🔊 음성 안내 중</div></div>
     <div class="meter-head"><span>눈 감김 정도 (세로선을 넘으면 감은 것으로 판단)</span><span id="scoreTxt">-</span></div>
     <div class="meter"><div class="fill" id="fill"></div><div class="th" id="th"></div></div>
   </div>
@@ -700,6 +703,7 @@ function loop(){
     }
   }
   camWatchdog(now);
+  $("ttsOverlay").classList.toggle("on", speakingNow.length > 0 && (video.paused || now - lastFrameAt > 500));
   // 시작 단계가 한 곳에서 15초 넘게 안 넘어가면 기본값으로 감지 시작
   if (calibPhase !== lastPhase){ lastPhase = calibPhase; phaseSince = now; }
   if (calibPhase !== "done" && calibPhase !== "none" && calibPhase !== "finishing" && now - phaseSince > 15000){
