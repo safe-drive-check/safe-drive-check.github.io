@@ -440,6 +440,7 @@ function speak(text, rate = 1.0){
     const end = () => {
       if (rec.done) return; rec.done = true;
       const k = speakingNow.indexOf(u); if (k >= 0) speakingNow.splice(k, 1);
+      if (running && stream && video.paused && !speakingNow.length) setTimeout(() => { if (!speakingNow.length) video.play().catch(() => {}); }, 300);   // 말이 끝난 뒤 카메라 화면 다시 켜기
       release();
     };
     u.onstart = () => { started = true; tStart = performance.now(); };
@@ -959,7 +960,7 @@ let quietSince = 0, lastProcAt = 0, lastFrameAt = 0, camFixing = false, camFixCo
 async function camWatchdog(now){
   if (!running || camFixing || !stream) return;
   const frozen = now - lastFrameAt;
-  if (frozen > 1000 && video.paused){ video.play().catch(() => {}); }
+  if (frozen > 1000 && video.paused && !speakingNow.length){ video.play().catch(() => {}); }
   // 아이폰은 소리가 날 때 카메라 화면을 잠깐 멈추기도 함 → 그동안은 기다리고, 카메라를 껐다 켜지 않음
   // (소리 나는 중에 카메라를 다시 켜면 아이폰이 소리를 또 끊어서 악순환이 생김)
   const ended = stream.getVideoTracks().every(t => t.readyState === "ended");
@@ -980,7 +981,12 @@ async function camWatchdog(now){
     lastFrameAt = performance.now(); camFixing = false;
   }
 }
-video.addEventListener("pause", () => { note("카메라 화면 일시정지"); if (running && stream) video.play().catch(() => {}); });
+// 아이폰은 음성이 시작되면 카메라 화면을 잠깐 멈춤 → 이때 화면을 다시 켜면 아이폰이 하던 말을 끊어버림
+// 그래서 말하는 동안에는 그대로 두고, 말이 끝난 뒤에 다시 켬
+video.addEventListener("pause", () => {
+  note("카메라 화면 일시정지");
+  if (running && stream && !speakingNow.length) video.play().catch(() => {});
+});
 
 function errMsg(e){
   if (!window.isSecureContext) return "https 주소에서 열어야 카메라를 쓸 수 있습니다";
