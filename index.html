@@ -415,7 +415,7 @@ function speak(text, rate = 1.0){
     const wait = sndBusyUntil + 500 - performance.now();
     if (wait > 0) await sleep(wait);
     // 마이크를 막 쓴 직후라면 잠깐 쉬기
-    const gap = 600 - (performance.now() - lastMicEndAt);
+    const gap = (IS_IOS ? 1000 : 600) - (performance.now() - lastMicEndAt);
     if (gap > 0) await sleep(gap);
     // 앞 문장이 아직 끝나지 않았으면, 그 문장의 최대 시간까지만 기다림 (지우지 않음)
     const prev = curUtt;
@@ -584,9 +584,15 @@ async function wakeCheck(kind = "drowsy", maxTries = 3){
     // 대답 신호: 띵 소리 + "지금 대답해 주세요" 표시 후 마이크 열기
     const askNow = async () => {
       if (useButtons){ $("stSub").textContent = `${q.text} (화면에서 골라 주세요)`; return await askByButtons(q); }
-      $("stSub").textContent = "🎤 지금 대답해 주세요";
+      // 말로 대답하거나 화면 버튼을 누르거나, 먼저 들어온 쪽으로 (음성 인식이 안 될 때도 막히지 않게)
+      $("stSub").textContent = "🎤 말로 대답하거나 아래에서 골라 주세요";
       playSnd("ding");
-      return await listen(7000, 350);
+      let byBtn = false;
+      const pB = askByButtons(q, 9000).then(v => { if (v != null){ byBtn = true; if (currentRec){ try { currentRec.abort(); } catch (e) {} } } return v; });
+      const v = await listen(8000, 350);
+      if (byBtn) return await pB;
+      if (v != null){ if (padResolve) padResolve(null); return v; }
+      return await pB;   // 말소리를 못 들었으면 버튼 대답을 마저 기다림
     };
     // 채점: 1순위가 숫자로 들렸으면 그 숫자로, 1순위에 숫자가 없으면 다른 후보에서 정답을 찾아 인정
     const grade = a => {
@@ -1019,7 +1025,6 @@ function unlockSound(){
 let micReady = false, iosMicLogged = false;
 async function ensureMic(){
   if (micReady) return true;
-  if (IS_IOS){ if (!iosMicLogged){ iosMicLogged = true; log("아이폰은 소리 끊김을 막기 위해 퀴즈를 화면 버튼으로 대답합니다"); } return false; }
   if (!SR){ log("이 브라우저는 음성 대답을 지원하지 않아 퀴즈는 화면 버튼으로 대답합니다"); return false; }
   if (!window.isSecureContext || !navigator.mediaDevices){ return false; }
   try {
