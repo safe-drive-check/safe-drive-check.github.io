@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>졸음 깨우미 | 운전자 졸음 감지 시연</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --asphalt:#e9ebee; --panel:#ffffff; --ink:#1a1d22; --muted:#5d6572; --line:#d5d9df;
+  --sign-blue:#1f4fa3; --sign-green:#16804a; --sign-yellow:#f2b705; --sign-red:#c8261d;
+  --on-yellow:#1a1d22; --on-color:#ffffff;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --asphalt:#1d2026; --panel:#272b33; --ink:#eef0f3; --muted:#a2a9b5; --line:#3a3f49;
+    --sign-blue:#3a6fd1; --sign-green:#25a463; --sign-yellow:#f2b705; --sign-red:#e0443a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --asphalt:#1d2026; --panel:#272b33; --ink:#eef0f3; --muted:#a2a9b5; --line:#3a3f49;
+  --sign-blue:#3a6fd1; --sign-green:#25a463; --sign-yellow:#f2b705; --sign-red:#e0443a;
+  color-scheme: dark;
+}
+:root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+body{
+  margin:0; background:var(--asphalt); color:var(--ink);
+  font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif;
+  line-height:1.55; font-size:16px;
+}
+.wrap{ max-width:520px; margin:0 auto; padding:18px 16px 32px; }
+header{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+h1{ font-size:1.35rem; margin:0; font-weight:700; letter-spacing:-0.01em; }
+header small{ color:var(--muted); font-size:.85rem; }
+
+/* 도로표지판 형태의 상태 패널 */
+.sign{
+  margin-top:14px; border-radius:14px; padding:26px 18px 22px; text-align:center;
+  background:var(--sign-blue); color:var(--on-color);
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,.9), inset 0 0 0 7px currentColor;
+  transition: background-color .15s;
+}
+.sign .label{ font-size:2.1rem; font-weight:700; letter-spacing:-0.02em; line-height:1.2; }
+#caption{ display:none; margin:10px 0 0; padding:12px 14px; border-radius:12px; background:rgba(255,255,255,.08); font-size:1.15rem; font-weight:600; line-height:1.45; text-align:center; }
+#caption.on{ display:block; }
+.sign .sub{ margin-top:6px; font-size:1rem; opacity:.92; min-height:1.55em; }
+.sign.ok{ background:var(--sign-green); }
+.sign.warn{ background:var(--sign-yellow); color:var(--on-yellow); box-shadow: inset 0 0 0 4px rgba(255,255,255,.9), inset 0 0 0 7px var(--on-yellow); }
+.sign.danger{ background:var(--sign-red); }
+
+.block{ background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; margin-top:12px; }
+video{ width:100%; display:block; border-radius:8px; transform:scaleX(-1); background:#000; aspect-ratio:4/3; object-fit:cover; }
+.meter-head{ display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin:12px 0 6px; }
+.meter{ height:10px; background:var(--line); border-radius:5px; position:relative; overflow:visible; }
+.meter .fill{ height:100%; width:0; border-radius:5px; background:var(--sign-green); }
+.meter .th{ position:absolute; top:-4px; bottom:-4px; width:3px; border-radius:2px; background:var(--ink); left:50%; }
+
+.stats{ display:grid; grid-template-columns:repeat(3,1fr); text-align:center; gap:4px; }
+.stats b{ display:block; font-size:1.45rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.stats span{ font-size:.8rem; color:var(--muted); }
+#sLast{ font-size:1.2rem; line-height:1.75rem; white-space:nowrap; }
+
+.actions{ display:flex; gap:10px; margin-top:12px; }
+button{ font:inherit; font-weight:700; border-radius:10px; padding:15px 12px; cursor:pointer; flex:1; border:2px solid transparent; }
+button:focus-visible, input:focus-visible, select:focus-visible{ outline:3px solid var(--sign-yellow); outline-offset:2px; }
+.go{ background:var(--sign-blue); color:var(--on-color); }
+.go.stop{ background:var(--panel); color:var(--ink); border-color:var(--ink); }
+.alt{ background:transparent; color:var(--ink); border-color:var(--line); }
+button:disabled{ opacity:.55; cursor:wait; }
+
+label{ display:block; font-size:.88rem; color:var(--muted); margin:12px 0 4px; }
+label:first-child{ margin-top:0; }
+input,select{ width:100%; font:inherit; padding:11px 12px; border-radius:8px; border:1px solid var(--line); background:var(--asphalt); color:var(--ink); }
+.note{ font-size:.82rem; color:var(--muted); margin:10px 0 0; }
+.log{ font-size:.85rem; color:var(--muted); max-height:150px; overflow:auto; font-variant-numeric:tabular-nums; }
+.log div{ padding:3px 0; border-bottom:1px solid var(--line); }
+.log div:last-child{ border-bottom:0; }
+h2{ font-size:.95rem; margin:0 0 6px; }
+.hidden{ display:none !important; }
+
+.flash{ position:fixed; inset:0; pointer-events:none; background:var(--sign-red); opacity:0; z-index:20; }
+.flash.on{ animation:flash .6s steps(1) infinite; }
+@keyframes flash{ 50%{ opacity:.4; } }
+@media (prefers-reduced-motion: reduce){ .flash.on{ animation:none; opacity:.25; } }
+</style>
+</head>
+<body>
+<div class="flash" id="flash"></div>
+<div id="landing" style="position:fixed;inset:0;z-index:40;background:var(--asphalt);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;padding-top:calc(24px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));text-align:center">
+  <div style="font-size:.9rem;font-weight:600;color:var(--sign-blue);margin-bottom:8px">AI 얼굴인식 졸음 감지</div>
+  <div style="font-size:2.15rem;font-weight:800;letter-spacing:-0.02em">졸음 깨우미</div>
+  <p style="font-size:1rem;font-weight:500;line-height:1.65;margin:14px 0 24px;max-width:340px">운행 중 졸음을 감지해 경고하고,<br>음성 퀴즈로 졸음을 깨워 드립니다</p>
+  <button id="enterBtn" class="go" style="flex:0 0 auto;width:100%;max-width:340px;font-size:1.15rem;padding:17px">졸음 깨우미 시작하기</button>
+</div>
+<div id="chromeGuide" class="hidden" style="position:fixed;left:0;right:0;top:0;z-index:45;background:#1f4fa3;color:#fff;text-align:center;padding:calc(30px + env(safe-area-inset-top,0px)) 20px 20px">
+  <div style="font-size:1.5rem;font-weight:800;line-height:1.4">다음 창에서 <span style="display:inline-block;background:#fff;color:#111418;border-radius:999px;padding:2px 12px">Chrome</span>을<br>선택해 주세요</div>
+  <div style="font-size:.95rem;margin-top:10px">안드로이드폰은 크롬에서만 정상 작동합니다</div>
+  <div style="font-size:1.6rem;margin-top:6px">▼</div>
+</div>
+<div id="noChrome" class="hidden" style="position:fixed;inset:0;z-index:40;background:var(--asphalt);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center">
+  <div style="font-size:.9rem;font-weight:600;color:var(--sign-blue);margin-bottom:8px">AI 얼굴인식 졸음 감지</div>
+  <div style="font-size:2.15rem;font-weight:800;letter-spacing:-0.02em">졸음 깨우미</div>
+  <div style="font-size:1.2rem;font-weight:800;color:var(--sign-red);margin:18px 0 8px">크롬이 설치되어 있지 않습니다</div>
+  <p style="font-size:1rem;font-weight:500;line-height:1.65;margin:0 0 20px;max-width:340px">안드로이드폰에서는 크롬으로만<br>정상 작동합니다.<br>크롬을 설치한 뒤 다시 접속해 주세요.</p>
+  <a href="https://play.google.com/store/apps/details?id=com.android.chrome" style="display:block;width:100%;max-width:340px;background:var(--sign-green);color:#fff;font-weight:700;font-size:1.15rem;padding:17px;border-radius:10px;text-decoration:none">크롬 설치하기</a>
+</div>
+<div id="soundBlock" class="hidden" role="alert" style="position:fixed;left:12px;right:12px;bottom:calc(16px + env(safe-area-inset-bottom, 0px));z-index:30;background:var(--sign-red);color:#fff;padding:16px;border-radius:12px;text-align:center;font-weight:700;font-size:1.05rem">소리가 꺼져 있습니다. 화면을 한 번 눌러주세요</div>
+<div class="wrap">
+  <header>
+    <h1>졸음 깨우미</h1>
+    <small>AI 얼굴인식 졸음 감지 시연판</small>
+  </header>
+
+  <div class="sign" id="sign" role="status" aria-live="assertive">
+    <div class="label" id="stLabel">대기 중</div>
+    <div class="sub" id="stSub">아래 설정을 확인하고 시작을 누르세요</div>
+  </div>
+  <div id="answerPad" class="hidden" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px"></div>
+
+  <div id="setupScreen">
+  <div class="block" id="setup">
+    <label for="name">운전자 이름</label>
+    <input id="name" placeholder="예: 김민수" maxlength="10" autocomplete="off">
+    <label for="delay">경고 시작 시점 (눈을 감고 있는 시간)</label>
+    <select id="delay">
+      <option value="1000">1.0초 후 (민감)</option>
+      <option value="1500" selected>1.5초 후 (보통)</option>
+      <option value="2000">2.0초 후 (둔감)</option>
+    </select>
+    <label for="roll">정기 점호 (AI가 주기적으로 말 걸기)</label>
+    <select id="roll">
+      <option value="0">사용 안 함</option>
+      <option value="15">15분마다</option>
+      <option value="30" selected>30분마다</option>
+    </select>
+    <p class="note">휴대폰을 거치대에 고정하고 얼굴이 화면에 잘 보이게 둔 뒤 시작하세요. 시작 직후 3초간 눈을 뜨고 정면을 보면 평소 눈 상태를 기준값으로 잡습니다.</p>
+  </div>
+
+  <div class="actions">
+    <button class="go" id="startBtn">시작</button>
+    <button class="alt" id="testBtn">체험하기</button>
+  </div>
+
+  <p class="note">※ 시연용 프로토타입입니다. 조명, 안경·선글라스, 휴대폰 각도에 따라 감지 정확도가 달라질 수 있습니다. 졸음 예방의 기본은 충분한 휴식이며, 운전 중에는 화면을 조작하지 마세요.</p>
+  </div>
+
+  <div id="runScreen" class="hidden">
+  <div class="block">
+    <video id="video" playsinline muted></video>
+    <div class="meter-head"><span>눈 감김 정도 (세로선을 넘으면 감은 것으로 판단)</span><span id="scoreTxt">-</span></div>
+    <div class="meter"><div class="fill" id="fill"></div><div class="th" id="th"></div></div>
+  </div>
+
+  <div class="block stats">
+    <div><b id="sTime">00:00</b><span>감지 시간</span></div>
+    <div><b id="sCount">0</b><span>졸음 감지</span></div>
+    <div><b id="sLast">-</b><span>마지막 감지</span></div>
+  </div>
+
+  <div class="actions">
+    <button class="go stop" id="pauseBtn">중지</button>
+    <button class="alt" id="exitBtn">나가기</button>
+  </div>
+
+  <div class="block">
+    <h2>기록</h2>
+    <div class="log" id="log" data-empty="1">시작하면 감지·경고·응답 기록이 여기에 쌓입니다.</div>
+  </div>
+  </div>
+</div>
+
+<script type="module">
+const TV_VER = "0.10.14";
+const TV_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${TV_VER}`;
+const WASM_URL = `${TV_URL}/wasm`;
+const MODEL_URL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
+
+const $ = id => document.getElementById(id);
+
+/* ---------- 시작 화면: 안드로이드에서 크롬이 아니면 버튼으로 크롬 열기 ---------- */
+const UA = navigator.userAgent;
+const ANDROID_NOT_CHROME = /Android/i.test(UA) &&
+  (/SamsungBrowser|NAVER|KAKAOTALK|Whale|; wv\)|Line\/|Instagram|FBAN|FBAV|DaumApps|EdgA|OPR\//i.test(UA) || !/Chrome\/\d+/i.test(UA));
+const QS = new URLSearchParams(location.search);
+// 크롬으로 넘어온 경우(go): 시작 화면 생략. 단, 선택 창에서 다른 브라우저를 골라 여전히 크롬이 아니면 시작 화면 유지
+if (QS.has("go") && !ANDROID_NOT_CHROME) $("landing").classList.add("hidden");
+if (QS.has("stay")) $("landing").classList.add("hidden");
+// 크롬이 없어 되돌아온 경우: 설치 안내 화면
+if (QS.has("nochrome") && ANDROID_NOT_CHROME){ $("landing").classList.add("hidden"); $("noChrome").classList.remove("hidden"); }
+const video = $("video");
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+let landmarker = null, stream = null, wakeLock = null, audioCtx = null;
+let running = false, testing = false, demoFinished = false, demoStarted = false;
+let mode = "idle";                 // idle | monitor | check
+let lastVideoTime = -1;
+let threshold = 0.5, calib = [], calibUntil = 0;
+// 측정 단계: warmup(카메라 준비) → seekFace(얼굴 안정) → measuring(3초 측정) → verify(눈 깜빡임 확인) → done
+let calibPhase = "none", warmupUntil = 0, faceStreak = 0, noFaceCalibSince = 0, measureUntil = 0, verifyStart = 0, verifyClosed = false, calibRetry = 0;
+let closed = false, closedSince = 0, stage = 0, lastAlarm = 0;
+let alertSpeaking = false;
+let noFaceSince = 0, lastFaceAt = 0, basePitch = null, calibPitch = [];
+let startAt = 0, count = 0, events = [];
+let paused = false, pausedAt = 0, runElapsed = 0;   // 일시 중지 상태와 이전까지 누적된 감지 시간
+let clockTimer = null, rollTimer = null;
+
+/* ---------- 화면 ---------- */
+function setSign(cls, label, sub){
+  $("sign").className = "sign " + cls;
+  $("stLabel").textContent = label;
+  $("stSub").textContent = sub || "";
+}
+const monitoring = () => setSign("ok", "정상 감지 중", "눈 상태를 확인하고 있습니다");
+function log(msg){
+  const el = $("log");
+  if (el.dataset.empty === "1"){ el.textContent = ""; el.dataset.empty = "0"; }
+  const t = new Date().toLocaleTimeString("ko-KR", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+  const d = document.createElement("div");
+  d.textContent = `${t}  ${msg}`;
+  el.prepend(d);
+}
+const flash = on => $("flash").classList.toggle("on", on);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const alive = () => running || testing;
+function callName(){
+  const n = $("name").value.trim();
+  return n ? `${n}님` : "기사님";
+}
+
+/* ---------- 소리 ---------- */
+function ensureAudio(){
+  if (!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // 카메라·마이크를 켜거나 다른 앱 소리 때문에 막히면 자동으로 다시 풀기 시도
+    audioCtx.onstatechange = () => { note("소리 장치 " + audioCtx.state); if (audioCtx.state !== "running" && running && !ttsBusy()) checkSound(); };
+  }
+  if (audioCtx.state !== "running") audioCtx.resume().catch(() => {});
+}
+// 무음 소리를 실제로 한 번 재생해 아이폰의 소리 잠금을 확실히 해제 (버튼 누른 순간에 호출)
+function playSilent(){
+  try {
+    const b = audioCtx.createBuffer(1, 1, 22050), src = audioCtx.createBufferSource();
+    src.buffer = b; src.connect(audioCtx.destination); src.start(0);
+  } catch (e) {}
+}
+// 소리가 막혀 있으면 풀기 시도 후, 그래도 막혀 있으면 안내 표시
+function ttsBusy(){ return speakingNow.length > 0 || ("speechSynthesis" in window && (speechSynthesis.speaking || speechSynthesis.pending)); }
+function checkSound(){
+  if (!audioCtx || ttsBusy()) return;
+  if (audioCtx.state !== "running"){ note("소리 장치 다시 켜기"); audioCtx.resume().catch(() => {}); }
+  setTimeout(() => { if (audioCtx.state !== "running") $("soundBlock").classList.remove("hidden"); }, 500);
+}
+document.addEventListener("pointerdown", () => {
+  if (!audioCtx) return;
+  if (!ttsBusy() && (audioCtx.state !== "running" || !$("soundBlock").classList.contains("hidden"))){
+    audioCtx.resume().catch(() => {}); playSilent();
+    if ("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "ko-KR"; speechSynthesis.speak(u); }
+    setTimeout(() => { if (audioCtx.state === "running") $("soundBlock").classList.add("hidden"); }, 300);
+  }
+}, true);
+// 부드러운 소리 (차임·차량 경고음용)
+function tone(f, start, dur, type = "sine", vol = 0.4){
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime + start;
+  o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.05);
+  track(o);
+}
+function chime(){ tone(988, 0, 0.55, "sine", 0.4); tone(784, 0.32, 0.8, "sine", 0.4); }
+function carAlert(){ [0, 0.22, 0.44].forEach(d => tone(1050, d, 0.16, "triangle", 0.45)); }
+
+/* ---------- 소리 파일 방식 (아이폰에서 음성 안내 뒤에도 안정적으로 재생) ---------- */
+const SR_RATE = 22050;
+function synth(sec, fn){ const n = Math.floor(sec * SR_RATE), d = new Float32Array(n); for (let i = 0; i < n; i++) d[i] = fn(i / SR_RATE); return d; }
+function env(t, start, dur){ if (t < start || t > start + dur) return 0; const x = t - start; return Math.min(1, x / 0.015) * Math.exp(-4 * x / dur); }
+function wavURL(d){
+  const buf = new ArrayBuffer(44 + d.length * 2), v = new DataView(buf);
+  const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  w(0, "RIFF"); v.setUint32(4, 36 + d.length * 2, true); w(8, "WAVE"); w(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, SR_RATE, true); v.setUint32(28, SR_RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36, "data"); v.setUint32(40, d.length * 2, true);
+  for (let i = 0; i < d.length; i++) v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, d[i])) * 32767, true);
+  return URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+}
+const tri = (f, t) => 2 * Math.abs(2 * ((t * f) % 1) - 1) - 1;
+const saw = (f, t) => 2 * ((t * f) % 1) - 1;
+const SOUND_SRC = {
+  car: () => synth(0.7, t => [0, 0.22, 0.44].reduce((s, st) => s + (t >= st && t < st + 0.16 ? tri(1050, t) * 0.6 * Math.min(1, (t - st) / 0.01) * Math.min(1, (st + 0.16 - t) / 0.02) : 0), 0)),
+  siren: () => synth(1.2, t => saw(Math.floor(t / 0.25) % 2 ? 700 : 1300, t) * 0.55 * Math.min(1, (1.2 - t) / 0.03)),
+  sirenLong: () => synth(2.0, t => saw(Math.floor(t / 0.25) % 2 ? 700 : 1300, t) * 0.65 * Math.min(1, (2.0 - t) / 0.03)),
+  chime: () => synth(1.3, t => Math.sin(2 * Math.PI * 988 * t) * 0.5 * env(t, 0, 0.6) + Math.sin(2 * Math.PI * 784 * t) * 0.5 * env(t, 0.32, 0.9)),
+  ding: () => synth(0.5, t => Math.sin(2 * Math.PI * 1175 * t) * 0.5 * env(t, 0, 0.45)),
+  bbik: () => synth(0.4, t => { const on = (t < 0.12) || (t >= 0.2 && t < 0.32); return on ? (Math.sin(2 * Math.PI * 1600 * t) > 0 ? 0.32 : -0.32) : 0; }),
+};
+const sounds = {}, brokenSnd = {}, soundURL = {}, soundDur = {};
+let SILENT_URL = null;
+function initSounds(){
+  if (sounds.car) return;
+  SILENT_URL = wavURL(new Float32Array(Math.round(SR_RATE * 0.05)));
+  for (const k in SOUND_SRC){
+    const d = SOUND_SRC[k]();
+    soundURL[k] = wavURL(d); soundDur[k] = d.length / SR_RATE * 1000;
+    const a = new Audio(soundURL[k]); a.preload = "auto"; a.setAttribute("playsinline", ""); a.onerror = () => { brokenSnd[k] = true; }; sounds[k] = a;
+  }
+}
+// 버튼을 누른 순간 모든 소리를 무음으로 한 번씩 재생해 "재생 허락"을 받아둠
+function unlockFiles(){
+  initSounds();
+  // 실제 소리 대신 '무음 파일'을 한 번씩 재생해서 허락만 받고, 끝나면 원래 소리로 되돌림 (첫 화면에서 소리 안 남)
+  for (const k in sounds){
+    const a = sounds[k];
+    const back = () => { try { a.pause(); a.src = soundURL[k]; a.load(); } catch (e) {} };
+    try {
+      a.src = SILENT_URL; a.muted = false;
+      const pr = a.play();
+      if (pr && pr.then) pr.then(back).catch(back); else back();
+    } catch (e) { back(); }
+  }
+}
+const FALLBACK = { bbik: () => { tone(1600, 0, 0.12, "square", 0.2); tone(1600, 0.2, 0.12, "square", 0.2); }, car: () => carAlert(), siren: () => siren(1.2, 0.6), sirenLong: () => siren(2, 0.8), chime: () => chime(), ding: () => tone(1175, 0, 0.45, "sine", 0.4) };
+function playSnd(k){
+  initSounds();
+  const a = sounds[k];
+  if (brokenSnd[k]) { FALLBACK[k](); return; }
+  const durMs = soundDur[k] || 1500;
+  note("효과음 " + k);
+  sndBusyUntil = Math.max(sndBusyUntil, performance.now() + durMs);
+  try {
+    a.muted = false; a.currentTime = 0;
+    const pr = a.play();
+    if (pr && pr.catch) pr.catch(e => { diag(`[효과음 실패] ${k} · ${e && e.name || "알 수 없음"} · 무음 모드 확인`); FALLBACK[k](); checkSound(); });
+  } catch (e) { FALLBACK[k](); }
+}
+function stopSounds(){ for (const k in sounds){ try { sounds[k].pause(); sounds[k].currentTime = 0; } catch (e) {} } }
+function beep(freq = 880, dur = 0.2, vol = 0.35){
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+  o.type = "square"; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+  track(o);
+}
+let activeOsc = [];
+function track(o){ activeOsc.push(o); o.onended = () => { activeOsc = activeOsc.filter(x => x !== o); }; }
+function silenceAll(){
+  alertSpeaking = false;
+  if (padResolve) padResolve(null);
+  stopSounds();
+  activeOsc.forEach(o => { try { o.stop(); } catch (e) {} }); activeOsc = [];
+  if ("speechSynthesis" in window) speechSynthesis.cancel(); if ($("caption")) showCaption("");
+  if (currentRec){ try { currentRec.abort(); } catch (e) {} currentRec = null; }
+  flash(false);
+}
+function siren(sec = 1.2, vol = 0.6){
+  ensureAudio();
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+  o.type = "sawtooth";
+  for (let i = 0; i < sec * 4; i++) o.frequency.setValueAtTime(i % 2 ? 700 : 1300, t + i * 0.25);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.setValueAtTime(0.0001, t + sec);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t); o.stop(t + sec + 0.05);
+  track(o);
+}
+
+/* ---------- 음성 ---------- */
+let lastMicEndAt = 0, sndBusyUntil = 0, ttsStuck = false;
+const speakingNow = [];   // 말하는 문장을 끝날 때까지 붙잡아 둠 (아이폰에서 중간에 사라지는 문제 방지)
+/* ---------- 문제 진단: 잘 안 될 때만 기록에 원인을 자세히 남김 ---------- */
+const recent = [];   // 최근 일어난 일 (효과음, 소리 장치, 카메라 등)
+function note(what){ recent.push({ t: performance.now(), what }); if (recent.length > 30) recent.shift(); }
+function recentSince(t0){
+  const r = recent.filter(e => e.t >= t0 - 300).map(e => e.what);
+  return r.length ? [...new Set(r)].slice(-3).join(", ") : "특이사항 없음";
+}
+let diagCount = 0, diagInfoShown = false;
+function diag(msg){
+  if (diagCount >= 12) return;   // 기록이 너무 길어지지 않게
+  diagCount++;
+  if (!diagInfoShown){
+    diagInfoShown = true;
+    const ios = (navigator.userAgent.match(/OS (\d+)_(\d+)/) || []).slice(1).join(".");
+    const kv = ("speechSynthesis" in window) ? speechSynthesis.getVoices().filter(v => (v.lang || "").toLowerCase().startsWith("ko")) : [];
+    log(`[기기] ${IS_IOS ? "아이폰 iOS " + (ios || "?") : (/Android/i.test(navigator.userAgent) ? "안드로이드" : "PC")} · 한국어 음성 ${kv.length}개${kv[0] ? " (" + kv[0].name + ")" : ""} · 소리 장치 ${audioCtx ? audioCtx.state : "없음"}`);
+  }
+  log(msg);
+}
+const short = t => { const x = t.trim(); return x.length > 12 ? x.slice(0, 12) + "…" : x; };
+function showCaption(text){
+  let c = $("caption");
+  if (!c){ c = document.createElement("div"); c.id = "caption"; $("sign").after(c); }
+  c.textContent = text; c.classList.toggle("on", !!text);
+}
+function speak(text, rate = 1.0){
+  return new Promise(async res => {
+    showCaption(text);   // 소리가 끊겨도 무슨 말인지 보이게 화면 자막
+    if (!("speechSynthesis" in window)) { setTimeout(res, 1500); return; }
+    // 효과음이 완전히 끝나고 0.5초 뒤에 말하기
+    const wait = sndBusyUntil + 500 - performance.now();
+    if (wait > 0) await sleep(wait);
+    // 마이크를 막 쓴 직후라면 잠깐 쉬기
+    const gap = 600 - (performance.now() - lastMicEndAt);
+    if (gap > 0) await sleep(gap);
+    if (ttsStuck || (speechSynthesis.pending && !speechSynthesis.speaking)){ note("음성 대기열 정리"); speechSynthesis.cancel(); ttsStuck = false; await sleep(150); }   // 막힌 대기열 정리
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "ko-KR"; u.rate = rate; u.volume = 1;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().replace("_", "-").startsWith("ko"));
+    if (v) u.voice = v;
+    speakingNow.push(u);
+    const chars = text.replace(/\s/g, "").length;
+    const expect = Math.max(800, chars * 150 / rate);   // 대략 말하는 데 걸리는 시간
+    const t0 = performance.now();
+    let done = false, started = false, tStart = 0;
+    const fin = () => {
+      if (done) return; done = true;
+      const k = speakingNow.indexOf(u); if (k >= 0) speakingNow.splice(k, 1);
+      setTimeout(() => { if ($("caption") && $("caption").textContent === text) showCaption(""); }, 1500);
+      res();
+    };
+    u.onstart = () => { started = true; tStart = performance.now(); };
+    u.onend = () => {
+      ttsStuck = false;
+      const dur = performance.now() - (tStart || t0);
+      if (chars > 6 && dur < expect * 0.4)
+        diag(`[음성 끊김] "${short(text)}" · ${(dur / 1000).toFixed(1)}초 만에 끝남(보통 ${(expect / 1000).toFixed(1)}초) · 그때: ${recentSince(tStart || t0)}`);
+      fin();
+    };
+    u.onerror = e => {
+      const dur = performance.now() - (tStart || t0);
+      diag(`[음성 오류] ${e.error || "알 수 없음"} · "${short(text)}" · ${(dur / 1000).toFixed(1)}초 시점 · 그때: ${recentSince(t0)}`);
+      fin();
+    };
+    // 소리가 시작되지 않아도 오래 붙잡지 않고 진행 (자막은 남아 있음)
+    setTimeout(() => { if (!started && !done){
+      ttsStuck = true;
+      diag(`[음성 안 나옴] "${short(text)}" · 3초간 시작 안 됨 · 말하는중=${speechSynthesis.speaking ? "예" : "아니오"} 대기=${speechSynthesis.pending ? "예" : "아니오"} · 그때: ${recentSince(t0)} · 무음 모드·볼륨 확인`);
+      fin(); } }, 3000);
+    // 아무리 길어도 이 시간이 지나면 다음으로
+    setTimeout(() => { if (!done){
+      ttsStuck = true;
+      diag(`[음성 멈춤] "${short(text)}" · 말 시작 후 끝 신호 없음 · 그때: ${recentSince(tStart || t0)}`);
+      fin(); } }, 2500 + chars * 200 / rate);
+    speechSynthesis.speak(u);
+    if (speechSynthesis.paused){ note("음성 일시정지 상태 → 재개"); speechSynthesis.resume(); }
+  });
+}
+let srWarned = false, currentRec = null;
+function listen(ms = 7000, pre = 300){
+  return new Promise(async res => {
+    if (!SR) { res(null); return; }
+    await sleep(pre); // 음성 안내가 끝난 뒤 마이크 전환 여유
+    let r;
+    if (!alive()) { res(null); return; }
+    try { r = new SR(); } catch (e) { res(null); return; }
+    currentRec = r;
+    r.lang = "ko-KR"; r.interimResults = false; r.maxAlternatives = 3; r.continuous = false;
+    let got = null, done = false;
+    const fin = () => { if (done) return; done = true; try { r.abort(); } catch (e) {} if (currentRec === r) currentRec = null; lastMicEndAt = performance.now(); res(got); };
+    r.onresult = e => { got = Array.from(e.results[0]).map(a => a.transcript).join(" | "); fin(); };
+    r.onerror = e => {
+      if (e.error && e.error !== "no-speech" && e.error !== "aborted" && !srWarned){
+        srWarned = true;
+        log(`음성 인식 오류 (${e.error}) · ${e.error === "not-allowed" ? "마이크 권한을 허용해 주세요" : e.error === "network" ? "인터넷 연결 확인 필요" : "크롬 브라우저 사용 권장"}`);
+      }
+    };
+    r.onend = () => setTimeout(fin, 50);
+    try { r.start(); } catch (e) { fin(); }
+    setTimeout(fin, ms);
+  });
+}
+if ("speechSynthesis" in window) speechSynthesis.addEventListener?.("voiceschanged", () => speechSynthesis.getVoices());
+
+/* ---------- 질문 ---------- */
+function makeQuestion(kind){
+  if (kind === "roll"){
+    const qs = [
+      "정기 점호입니다. 지금 컨디션 괜찮으시면 네, 라고 대답해 주세요.",
+      "정기 점호입니다. 지금 어디쯤 지나고 계신지 말씀해 주세요.",
+      "정기 점호입니다. 마지막으로 쉰 게 언제인지 말씀해 주세요."
+    ];
+    return { text: qs[Math.floor(Math.random() * qs.length)], answer: null };
+  }
+  const rnd = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+  const josa = n => [0, 1, 3, 6, 7, 8].includes(n % 10) ? "은" : "는";   // 숫자 읽는 소리에 맞춘 조사
+  let q;
+  do {
+    const type = rnd(0, 2);
+    if (type === 0){ const x = rnd(11, 29), y = rnd(2, 9); q = { text: `${x} 더하기 ${y}${josa(y)} 얼마일까요?`, answer: x + y }; }
+    else if (type === 1){ const x = rnd(15, 29), y = rnd(2, 9); q = { text: `${x} 빼기 ${y}${josa(y)} 얼마일까요?`, answer: x - y }; }
+    else { const x = rnd(2, 5), y = rnd(2, 9); q = { text: `${x} 곱하기 ${y}${josa(y)} 얼마일까요?`, answer: x * y }; }
+  } while (q.text === lastQuestion);   // 직전 문제와 같은 문제는 다시 내지 않음
+  lastQuestion = q.text;
+  return q;
+}
+let lastQuestion = "";
+function parseNum(t){
+  const m = t.match(/\d+/g);
+  if (m) return +m[m.length - 1];
+  const s = t.replace(/\s/g, "");
+  const sino = { 일:1, 이:2, 삼:3, 사:4, 오:5, 육:6, 칠:7, 팔:8, 구:9 };
+  const a = s.match(/([이삼사오육칠팔구]?)십([일이삼사오육칠팔구]?)/);
+  if (a) return (a[1] ? sino[a[1]] : 1) * 10 + (a[2] ? sino[a[2]] : 0);
+  const ones = { 하나:1, 한:1, 둘:2, 두:2, 셋:3, 세:3, 넷:4, 네:4, 다섯:5, 여섯:6, 일곱:7, 여덟:8, 아홉:9 };
+  const tens = { 열:10, 스물:20, 스무:20, 서른:30, 마흔:40 };
+  const b = s.match(/(열|스물|스무|서른|마흔)(하나|한|둘|두|셋|세|넷|네|다섯|여섯|일곱|여덟|아홉)?/);
+  if (b) return tens[b[1]] + (b[2] ? ones[b[2]] : 0);
+  // 한 자리 답 (예: "육", "여섯"). "네"는 대답(예)과 헷갈려서 제외
+  const c = s.match(/^(하나|둘|셋|넷|다섯|여섯|일곱|여덟|아홉)/);
+  if (c) return ones[c[1]];
+  const d = s.match(/^([일이삼사오육칠팔구])(입니다|이요|요|이에요|예요)?$/);
+  if (d) return sino[d[1]];
+  return null;
+}
+
+/* ---------- 깨우기 확인 (질문 → 응답 대기 → 단계 상승) ---------- */
+// 음성 인식이 안 되는 브라우저: 화면 버튼으로 대답 (보기 3개)
+let padResolve = null;
+function askByButtons(q, ms = 10000){
+  return new Promise(res => {
+    const pad = $("answerPad"); pad.innerHTML = "";
+    let opts;
+    if (q.answer == null) opts = ["네, 괜찮아요"];
+    else {
+      const set = new Set([q.answer]);
+      while (set.size < 3){ const d = q.answer + (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 5)); if (d > 0) set.add(d); }
+      opts = [...set].sort(() => Math.random() - 0.5);
+    }
+    let done = false;
+    const fin = v => { if (done) return; done = true; padResolve = null; pad.classList.add("hidden"); pad.innerHTML = ""; res(v); };
+    padResolve = fin;
+    opts.forEach(o => {
+      const b = document.createElement("button");
+      b.textContent = o; b.className = "go";
+      b.style.cssText = "font-size:1.6rem;padding:18px 0" + (opts.length === 1 ? ";grid-column:1 / -1;font-size:1.2rem" : "");
+      b.onclick = () => fin(String(o));
+      pad.appendChild(b);
+    });
+    pad.classList.remove("hidden");
+    setTimeout(() => fin(null), ms);
+  });
+}
+
+async function wakeCheck(kind = "drowsy", maxTries = 3){
+  if (mode === "check") return;
+  mode = "check";
+  const useButtons = !SR || !micReady;   // 음성 대답이 안 되면 화면 버튼으로
+  if (kind === "drowsy"){
+    // 사이렌 → 차임 → 안내 → 문제 순서로 자연스럽게 연결
+    flash(false);
+    setSign("", "퀴즈", "졸음 깨게 퀴즈 하나 낼게요");
+    playSnd("chime");
+    await sleep(1000);
+    if (alive()) await speak(`${callName()}, 피곤하시죠? 졸음 깨게 퀴즈 하나 낼게요.`);
+  }
+  let tries = 0, answered = false, wrong = 0;
+  while (alive() && tries < maxTries){
+    const q = makeQuestion(kind);
+    setSign("danger", "대답해 주세요", q.text);
+    await speak(kind === "roll" ? `${callName()}, ${q.text}` : q.text);
+    if (!alive()) break;
+    // 대답 신호: 띵 소리 + "지금 대답해 주세요" 표시 후 마이크 열기
+    const askNow = async () => {
+      if (useButtons){ $("stSub").textContent = `${q.text} (화면에서 골라 주세요)`; return await askByButtons(q); }
+      $("stSub").textContent = "🎤 지금 대답해 주세요";
+      playSnd("ding");
+      return await listen(7000, 350);
+    };
+    // 채점: 1순위가 숫자로 들렸으면 그 숫자로, 1순위에 숫자가 없으면 다른 후보에서 정답을 찾아 인정
+    const grade = a => {
+      const alts = a.split(" | "), n1 = parseNum(alts[0]);
+      if (n1 != null) return { n: n1, heard: alts[0] };
+      const hit = alts.find(x => parseNum(x) === q.answer);
+      return hit ? { n: q.answer, heard: hit } : { n: null, heard: alts[0] };
+    };
+    let ans = await askNow();
+    if (!alive()) break;
+    let g = (ans && q.answer != null) ? grade(ans) : null;
+    // 숫자를 못 알아들었으면 오답으로 세지 않고 한 번 더 묻기
+    if (g && g.n == null && !useButtons){
+      log(`응답: “${g.heard}” (숫자 인식 못함 · 다시 질문)`);
+      $("stSub").textContent = `들은 말: ${g.heard}`;
+      await speak("잘 못 들었어요. 다시 한 번 말씀해 주세요.");
+      if (!alive()) break;
+      ans = await askNow();
+      if (!alive()) break;
+      g = ans ? grade(ans) : null;
+    }
+    if (ans){
+      const first = ans.split(" | ")[0];
+      if (q.answer == null){
+        answered = true;
+        log(`응답 확인: “${first}”`);
+        await speak("네, 확인했습니다. 안전운전 하세요.");
+        break;
+      }
+      const n = g.n;
+      $("stSub").textContent = `들은 말: ${g.heard}`;   // 어떻게 알아들었는지 화면에 표시
+      if (n === q.answer){
+        answered = true;
+        log(`응답: “${g.heard}” (정답)`);
+        await speak("정답입니다! 이제 좀 깨셨나요? 그래도 졸리면 꼭 쉬어 가세요.");
+        break;
+      }
+      wrong++;
+      log(`응답: “${g.heard}” (오답 ${wrong}회, 정답 ${q.answer})`);
+      if (wrong >= 2){
+        answered = true;
+        setSign("danger", "휴식이 필요합니다", "가까운 휴게소에서 쉬어 가세요");
+        await speak(`정답은 ${q.answer}이에요. 많이 피곤하신 것 같아요. 가까운 휴게소나 졸음쉼터에서 쉬어 가세요.`);
+        break;
+      }
+      await speak(n == null ? `숫자로 대답해 주세요. 정답은 ${q.answer}이었어요. 하나 더 낼게요.` : `아쉬워요. 정답은 ${q.answer}이에요. 하나 더 낼게요.`);
+      continue;
+    }
+    tries++;
+    log(`무응답 ${tries}회`);
+    if (tries >= maxTries) break;
+    flash(true); playSnd("siren"); await sleep(1600); flash(false);
+    kind = "drowsy";
+  }
+  if (alive() && !answered && tries >= 3 && maxTries >= 3){
+    setSign("danger", "즉시 정차하세요", "응답이 없습니다. 안전한 곳에 차를 세우세요");
+    log("3회 무응답 · 정차 권고");
+    flash(true);
+    await speak(`${callName()}! 응답이 없습니다. 즉시 안전한 곳에 정차하세요.`);
+    playSnd("sirenLong"); await sleep(2200);
+    flash(false);
+  }
+  const recent = events.filter(t => Date.now() - t < 10 * 60 * 1000).length;
+  if (alive() && !testing && recent >= 2){
+    log("10분 내 2회 이상 감지 · 휴식 권고");
+    await speak("최근 10분 동안 졸음이 두 번 이상 감지됐습니다. 가까운 휴게소나 졸음쉼터에서 꼭 쉬어 가세요.");
+  }
+  finishCheck();
+}
+function finishCheck(){
+  if (testing) demoFinished = true;
+  stage = 0; closed = false;
+  if (running){ mode = "monitor"; monitoring(); }
+  else if (!paused){ mode = "idle"; setSign("", "대기 중", "아래 설정을 확인하고 시작을 누르세요"); }
+}
+function registerEvent(){
+  count++;
+  events.push(Date.now());
+  $("sCount").textContent = count;
+  const d = new Date(), h = d.getHours();
+  $("sLast").textContent = `${h < 12 ? "오전" : "오후"} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")}`;
+  log("졸음 감지 · 경고 발령");
+}
+
+/* ---------- 얼굴인식 ---------- */
+async function createLandmarker(){
+  const { FaceLandmarker, FilesetResolver } = await import(TV_URL);
+  const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
+  const opts = d => ({
+    baseOptions: { modelAssetPath: MODEL_URL, delegate: d },
+    outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true, runningMode: "VIDEO", numFaces: 1
+  });
+  try { return await FaceLandmarker.createFromOptions(fileset, opts("GPU")); }
+  catch (e) { return await FaceLandmarker.createFromOptions(fileset, opts("CPU")); }
+}
+
+function loop(){
+  if (!running) return;
+  const now = performance.now();
+  if (video.readyState >= 2 && video.currentTime !== lastVideoTime){
+    lastVideoTime = video.currentTime; lastFrameAt = now; camFixCount = 0;
+    if (now - lastProcAt >= 100){   // 얼굴 분석은 1초에 10번만 (휴대폰 부담 줄이기)
+      lastProcAt = now;
+      try { handle(landmarker.detectForVideo(video, now), now); } catch (e) {}
+    }
+  }
+  camWatchdog(now);
+  // 시작 단계가 한 곳에서 15초 넘게 안 넘어가면 기본값으로 감지 시작
+  if (calibPhase !== lastPhase){ lastPhase = calibPhase; phaseSince = now; }
+  if (calibPhase !== "done" && calibPhase !== "none" && calibPhase !== "finishing" && now - phaseSince > 15000){
+    log(`시작 단계 지연(${calibPhase}) · 기본값으로 시작`);
+    threshold = 0.5; basePitch = null; $("th").style.left = "50%";
+    finishFlow(calibToken, false);
+    phaseSince = now;
+  }
+  requestAnimationFrame(loop);
+}
+
+// 고개 숙임 각도(도). 얼굴 회전 행렬에서 위아래(끄덕임) 회전만 계산
+function headPitch(res){
+  const m = res && res.facialTransformationMatrixes && res.facialTransformationMatrixes[0] && res.facialTransformationMatrixes[0].data;
+  if (!m) return null;
+  return Math.atan2(m[6], m[10]) * 180 / Math.PI;
+}
+function angleDiff(a, b){ let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return Math.abs(d); }
+
+function trimmedMean(arr){
+  const a = arr.slice().sort((x, y) => x - y), cut = Math.floor(a.length * 0.2);
+  const mid = a.slice(cut, a.length - cut || a.length);
+  return mid.reduce((x, y) => x + y, 0) / mid.length;
+}
+let calibToken = 0, calibStartAt = 0, seekStartAt = 0, measureExt = 0;   // 중지·재시작 시 이전 안내 흐름이 끼어들지 않도록 구분
+const stillOn = tk => running && tk === calibToken;
+async function introFlow(tk){
+  calibPhase = "intro";
+  await sleep(1000); if (!stillOn(tk)) return;   // 카메라·마이크가 자리 잡을 시간
+  setSign("warn", "준비 중", "잠시만 기다려 주세요");
+  playSnd("chime"); await sleep(900); if (!stillOn(tk)) return;
+  await speak(testing ? "졸음 깨우미 체험을 시작합니다." : `${callName()}, 준비되었습니다.`); if (!stillOn(tk)) return;
+  await sleep(400); if (!stillOn(tk)) return;
+  setSign("warn", "준비 중", "정면을 보고 잠시 기다려 주세요");
+  await speak("정면을 보고 잠시 기다려 주세요."); if (!stillOn(tk)) return;
+  calibPhase = "warmup"; warmupUntil = performance.now() + 300; calibStartAt = performance.now();   // 카메라는 이미 충분히 켜져 있음
+}
+async function verifyIntro(tk){
+  calibPhase = "verifyIntro";
+  setSign("", "작동 확인", "눈을 한 번 꼭 감았다 떠 보세요");
+  playSnd("ding"); await sleep(700); if (!stillOn(tk)) return;
+  await speak("작동 확인을 위해 눈을 한 번 꼭 감았다 떠 보세요."); if (!stillOn(tk)) return;
+  calibPhase = "verify"; verifyStart = performance.now(); verifyClosed = false;
+}
+async function finishFlow(tk, ok){
+  calibPhase = "finishing";
+  if (ok){
+    log("작동 확인 완료");
+    setSign("ok", "확인 완료", "정상 작동합니다");
+    await sleep(500); if (!stillOn(tk)) return;
+    playSnd("chime"); await sleep(900); if (!stillOn(tk)) return;
+    if (testing) setSign("warn", "체험 중", "눈을 3초간 감아 보세요");
+    await speak(testing ? "정상 작동합니다. 이제 졸음 상황을 체험해 볼게요. 눈을 3초간 감아 보세요." : "정상 작동합니다. 지금부터 졸음 감지를 시작합니다."); if (!stillOn(tk)) return;
+  }
+  if (!ok && testing && stillOn(tk)){
+    setSign("warn", "체험 중", "눈을 3초간 감아 보세요");
+    await speak("이제 졸음 상황을 체험해 볼게요. 눈을 3초간 감아 보세요."); if (!stillOn(tk)) return;
+  }
+  calibPhase = "done"; calibUntil = performance.now(); closed = false; stage = 0;
+  log("감지 시작");
+  if (!testing) monitoring();
+}
+async function retryFlow(tk){
+  calibPhase = "retryIntro";
+  setSign("warn", "다시 측정합니다", "정면을 봐 주세요");
+  await speak("다시 측정할게요. 정면을 봐 주세요."); if (!stillOn(tk)) return;
+  calibPhase = "warmup"; warmupUntil = performance.now() + 500; calibStartAt = performance.now();
+}
+function calibHandle(cats, res, now){
+  const tk = calibToken;
+  if (cats){
+    const g = n => (cats.find(c => c.categoryName === n) || { score: 0 }).score;
+    const v = (g("eyeBlinkLeft") + g("eyeBlinkRight")) / 2;
+    $("fill").style.width = Math.round(v * 100) + "%"; $("scoreTxt").textContent = Math.round(v * 100) + "%";
+  } else { $("scoreTxt").textContent = "얼굴 없음"; $("fill").style.width = "0%"; }
+  // 안내 음성이 나오는 단계에서는 측정·확인을 하지 않고 기다림
+  if (["intro", "verifyIntro", "finishing", "retryIntro"].includes(calibPhase)) return;
+  // 안전장치: 어떤 이유든 15초 안에 측정이 끝나지 않으면 기본값으로 시작
+  if (["warmup", "seekFace", "measuring"].includes(calibPhase) && calibStartAt && now - calibStartAt > 15000){
+    threshold = 0.5; basePitch = null; $("th").style.left = "50%";
+    log("측정이 어려워 기본값으로 시작");
+    calibPhase = "finishing";
+    setSign("warn", "기본값으로 시작", "측정이 어려워 기본값으로 시작합니다");
+    speak("측정이 어려워 기본값으로 시작합니다.").then(() => { if (stillOn(tk)) finishFlow(tk, false); });
+    return;
+  }
+  if (calibPhase === "warmup"){ if (now >= warmupUntil){ calibPhase = "seekFace"; faceStreak = 0; noFaceCalibSince = 0; seekStartAt = now; } return; }
+  if (!cats){
+    faceStreak = Math.max(0, faceStreak - 1);   // 한두 번 놓쳐도 처음부터 다시 세지 않음
+    if (calibPhase === "seekFace"){
+      if (!noFaceCalibSince) noFaceCalibSince = now;
+      if (now - noFaceCalibSince > 3000) setSign("warn", "얼굴이 안 보입니다", "휴대폰 각도를 조정하고 정면을 봐 주세요");
+    }
+    if (calibPhase === "verify" && now - verifyStart > 8000) verifyFail(tk);
+    return;
+  }
+  noFaceCalibSince = 0;
+  const get = n => (cats.find(c => c.categoryName === n) || { score: 0 }).score;
+  const sc = (get("eyeBlinkLeft") + get("eyeBlinkRight")) / 2, pitch = headPitch(res);
+  if (calibPhase === "seekFace"){
+    faceStreak++;
+    // 얼굴이 대부분 잡히면 시작 (처리가 느린 폰은 4초 지나면 조건 완화)
+    if (faceStreak >= 8 || (now - seekStartAt > 4000 && faceStreak >= 3)){
+      calibPhase = "measuring"; calib = []; calibPitch = []; measureUntil = now + 3000; measureExt = 0;
+    }
+    return;
+  }
+  if (calibPhase === "measuring"){
+    const left = Math.max(1, Math.ceil((measureUntil - now) / 1000));
+    setSign("warn", `측정 중 ${left}`, "정면을 보고 눈을 편하게 뜨세요");
+    calib.push(sc); if (pitch != null) calibPitch.push(pitch);
+    if (now < measureUntil) return;
+    // 처리가 느린 폰: 분석한 화면이 적어도 최대 2초까지만 연장하고 그대로 완료
+    if (calib.length < 15 && measureExt < 2){ measureExt++; measureUntil = now + 1000; return; }
+    if (calib.length < 3){ calib = [0.1]; }
+    const base = trimmedMean(calib);
+    threshold = Math.min(0.75, Math.max(0.4, base + 0.3));
+    basePitch = calibPitch.length ? trimmedMean(calibPitch) : null;
+    $("th").style.left = (threshold * 100) + "%";
+    log(`기준값 측정 완료 (평소 ${Math.round(base * 100)}%, 경고 기준 ${Math.round(threshold * 100)}%)`);
+    calib = []; calibPitch = [];
+    verifyIntro(tk);
+    return;
+  }
+  if (calibPhase === "verify"){
+    const closeLv = Math.max(0.35, threshold - 0.08);   // 느린 폰에서도 깜빡임을 놓치지 않게 조금 넉넉하게
+    if (!verifyClosed && sc > closeLv) verifyClosed = true;
+    else if (verifyClosed && sc < closeLv - 0.1){ finishFlow(tk, true); return; }
+    if (now - verifyStart > 8000) verifyFail(tk);
+  }
+}
+function verifyFail(tk){
+  calibRetry++;
+  if (calibRetry <= 2){
+    log(`작동 확인 실패 · 다시 측정 (${calibRetry}회)`);
+    retryFlow(tk);
+  } else {
+    log("작동 확인 실패 · 카메라 위치·조명 확인 필요");
+    calibPhase = "finishing";
+    setSign("warn", "카메라 확인 필요", "카메라 위치나 조명을 확인해 주세요");
+    speak("눈 감김이 잘 감지되지 않습니다. 카메라 위치나 조명을 확인해 주세요.").then(() => { if (stillOn(tk)) finishFlow(tk, false); });
+  }
+}
+
+function handle(res, now){
+  const cats = res && res.faceBlendshapes && res.faceBlendshapes[0] && res.faceBlendshapes[0].categories;
+  if (calibPhase !== "done" && calibPhase !== "none"){ calibHandle(cats, res, now); return; }
+  if (!cats && mode === "monitor" && now >= calibUntil){
+    // 방금 전까지 보이던 얼굴이 갑자기 사라짐 → 고개를 떨군 것으로 보고, 사라진 시점부터 눈 감음으로 계산
+    if (!closed && lastFaceAt && now - lastFaceAt < 1000){ closed = true; closedSince = lastFaceAt; }
+    if (closed && now - closedSince < 60000){
+      $("scoreTxt").textContent = "얼굴 안 보임 · 졸음 의심";
+      $("fill").style.width = "100%";
+      $("fill").style.background = "var(--sign-red)";
+      escalate(now);
+      return;
+    }
+  }
+  if (!cats){
+    $("scoreTxt").textContent = "얼굴 없음";
+    $("fill").style.width = "0%";
+    if (!noFaceSince) noFaceSince = now;
+    if (mode === "monitor" && now - noFaceSince > 3000) setSign("warn", "얼굴이 안 보입니다", "휴대폰 각도를 조정해 주세요");
+    closed = false; if (mode === "monitor") { stage = 0; flash(false); }
+    return;
+  }
+  if (noFaceSince){
+    const wasLong = now - noFaceSince > 3000;
+    noFaceSince = 0;
+    if (wasLong && mode === "monitor" && now > calibUntil) monitoring();
+  }
+  lastFaceAt = now;
+  const get = n => (cats.find(c => c.categoryName === n) || { score: 0 }).score;
+  const s = (get("eyeBlinkLeft") + get("eyeBlinkRight")) / 2;
+  const pitch = headPitch(res);
+  $("fill").style.width = Math.round(s * 100) + "%";
+
+  if (now < calibUntil){ calib.push(s); if (pitch != null) calibPitch.push(pitch); $("scoreTxt").textContent = Math.round(s * 100) + "%"; return; }
+  if (calib.length){
+    const base = calib.reduce((a, b) => a + b, 0) / calib.length;
+    threshold = Math.min(0.75, Math.max(0.4, base + 0.3));
+    basePitch = calibPitch.length ? calibPitch.slice().sort((a, b) => a - b)[Math.floor(calibPitch.length / 2)] : null;
+    $("th").style.left = (threshold * 100) + "%";
+    log(`기준값 측정 완료 (평소 ${Math.round(base * 100)}%, 경고 기준 ${Math.round(threshold * 100)}%)`);
+    calib = []; calibPitch = [];
+    if (mode === "monitor") monitoring();
+  }
+
+  // 고개를 평소보다 25도 이상 숙이면 눈을 감은 것과 같이 처리
+  const tilt = (pitch != null && basePitch != null) ? angleDiff(pitch, basePitch) : 0;
+  const nodding = tilt > 25;
+  $("scoreTxt").textContent = Math.round(s * 100) + "%" + (nodding ? " · 고개 숙임" : "");
+
+  if (!closed && (s > threshold || nodding)){ closed = true; closedSince = now; }
+  else if (closed && s < threshold - 0.1 && tilt < 18){
+    closed = false;
+    if (mode === "monitor"){
+      flash(false);
+      if (stage >= 2) wakeCheck("drowsy", testing ? 1 : 3);
+      else if (stage === 1) monitoring();
+      stage = 0;
+    }
+  }
+  $("fill").style.background = closed ? "var(--sign-red)" : "var(--sign-green)";
+
+  if (closed && mode === "monitor") escalate(now);
+}
+
+function escalate(now){
+  {
+    const dur = now - closedSince, T1 = +$("delay").value;
+    if (dur > T1 && stage < 1){
+      stage = 1;
+      setSign("warn", "눈을 떠 주세요", "졸음 징후가 감지됐습니다");
+      playSnd("bbik");
+      setTimeout(() => { if (stage === 1 && mode === "monitor") speak("졸리세요?", 1.15); }, 400);
+    }
+    // 노란색 음성이 아직 나오는 중이면 최대 0.3초까지만 기다렸다가 빨간색으로
+    const yellowTalking = ("speechSynthesis" in window) && speechSynthesis.speaking && dur < T1 + 1300;
+    if (dur > T1 + 1000 && stage < 2 && !yellowTalking){
+      stage = 2; lastAlarm = now;
+      if (testing) log("체험: 눈 감김 감지 · 경고 발령");   // 체험은 졸음 횟수·10분 내 계산에서 제외
+      else registerEvent();
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+      flash(true); playSnd("siren");
+      setSign("danger", "졸음 경고", "눈을 뜨세요");
+      // 사이렌과 음성을 동시에 재생하면 아이폰 등에서 음성이 막힐 수 있어, 사이렌이 끝난 뒤 음성 재생
+      alertSpeaking = true;
+      const name = callName();
+      setTimeout(async () => {
+        if (stage >= 2 && (mode === "monitor")){
+          await speak(`${name}! 눈을 뜨세요!`);
+        }
+        alertSpeaking = false;
+        lastAlarm = performance.now();   // 음성이 끝난 뒤부터 다음 사이렌까지 간격 계산
+      }, 1350);
+    }
+    // 음성이 나오는 동안에는 반복 사이렌을 쉬어서 음성이 묻히지 않게 함
+    if (stage >= 2 && !alertSpeaking && now - lastAlarm > 2200){ playSnd("siren"); lastAlarm = now; }
+  }
+}
+
+/* ---------- 시작 / 중지 ---------- */
+// 카메라 켜기: 실패하면 이전 카메라를 정리하고 1초 뒤 한 번 더 시도
+async function openCamera(){
+  const opts = { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false };
+  if (stream){ try { stream.getTracks().forEach(t => t.stop()); } catch (e) {} stream = null; }
+  let st;
+  try { st = await navigator.mediaDevices.getUserMedia(opts); }
+  catch (e){
+    if (e && (e.name === "NotAllowedError" || e.name === "NotFoundError")) throw e;
+    log("카메라 다시 시도");
+    await sleep(1000);
+    st = await navigator.mediaDevices.getUserMedia(opts);
+  }
+  stream = st;
+  video.muted = true; video.setAttribute("playsinline", ""); video.setAttribute("muted", "");
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+  lastFrameAt = performance.now();
+}
+// 카메라 화면이 멈추면 자동 복구 (소리 재생 등으로 아이폰이 영상을 일시정지하는 경우)
+let quietSince = 0, lastProcAt = 0, lastFrameAt = 0, camFixing = false, camFixCount = 0, phaseSince = 0, lastPhase = "";
+async function camWatchdog(now){
+  if (!running || camFixing || !stream) return;
+  const frozen = now - lastFrameAt;
+  if (frozen > 1000 && video.paused){ video.play().catch(() => {}); }
+  // 아이폰은 소리가 날 때 카메라 화면을 잠깐 멈추기도 함 → 그동안은 기다리고, 카메라를 껐다 켜지 않음
+  // (소리 나는 중에 카메라를 다시 켜면 아이폰이 소리를 또 끊어서 악순환이 생김)
+  const ended = stream.getVideoTracks().every(t => t.readyState === "ended");
+  const busy = speakingNow.length > 0 || ("speechSynthesis" in window && speechSynthesis.speaking) || now < sndBusyUntil + 1500 || alertSpeaking;
+  if (busy) quietSince = now; else if (!quietSince) quietSince = now;
+  const quietLong = !busy && now - quietSince > 1500;
+  if ((ended && !busy) || (frozen > 6000 && quietLong)){
+    camFixing = true;
+    camFixCount++;
+    if (camFixCount > 3){
+      setSign("danger", "카메라가 응답하지 않습니다", "새로고침 후 다시 시작해 주세요");
+      log("카메라 재연결 3회 실패");
+      lastFrameAt = performance.now() + 60000; camFixing = false; return;
+    }
+    diag(`[카메라] ${ended ? "카메라 꺼짐" : ((frozen / 1000).toFixed(0) + "초간 화면 멈춤")} · 다시 연결 · 그때: ${recentSince(now - frozen)}`); note("카메라 다시 연결");
+    try { await openCamera(); lastVideoTime = -1; }
+    catch (e){ setSign("danger", "카메라를 다시 켜지 못했습니다", "새로고침 후 다시 시작해 주세요"); }
+    lastFrameAt = performance.now(); camFixing = false;
+  }
+}
+video.addEventListener("pause", () => { note("카메라 화면 일시정지"); if (running && stream) video.play().catch(() => {}); });
+
+function errMsg(e){
+  if (!window.isSecureContext) return "https 주소에서 열어야 카메라를 쓸 수 있습니다";
+  if (e && e.name === "NotAllowedError") return "카메라 권한을 허용한 뒤 다시 시작하세요";
+  if (e && e.name === "NotFoundError") return "사용할 수 있는 카메라가 없습니다";
+  if (e && e.modelFail) return "AI 모델을 불러오지 못했습니다. 인터넷 연결을 확인하세요";
+  return "카메라를 켜지 못했습니다. 새로고침 후 다시 시작해 주세요";
+}
+function fmt(ms){
+  const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  const p = n => String(n).padStart(2, "0");
+  return h ? `${h}:${p(m)}:${p(s)}` : `${p(m)}:${p(s)}`;
+}
+
+async function requestWake(){
+  try {
+    if (!navigator.wakeLock) return;
+    wakeLock = await navigator.wakeLock.request("screen");
+    wakeLock.addEventListener("release", () => { wakeLock = null; });
+  } catch (e) {}
+}
+
+// 소리 잠금 해제: 버튼을 누른 그 순간(사용자 동작 안)에 호출해야 아이폰·안드로이드에서 소리가 남
+function unlockSound(){
+  ensureAudio();
+  playSilent();
+  unlockFiles();
+  if ("speechSynthesis" in window){ const u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "ko-KR"; speechSynthesis.speak(u); }
+}
+let micReady = false, iosMicLogged = false;
+async function ensureMic(){
+  if (micReady) return true;
+  if (IS_IOS){ if (!iosMicLogged){ iosMicLogged = true; log("아이폰은 소리 끊김을 막기 위해 퀴즈를 화면 버튼으로 대답합니다"); } return false; }
+  if (!SR){ log("이 브라우저는 음성 대답을 지원하지 않아 퀴즈는 화면 버튼으로 대답합니다"); return false; }
+  if (!window.isSecureContext || !navigator.mediaDevices){ return false; }
+  try {
+    const a = await navigator.mediaDevices.getUserMedia({ audio: true });
+    a.getTracks().forEach(t => t.stop());
+    micReady = true; return true;
+  } catch (e){ log("마이크 권한이 없어 퀴즈는 화면 버튼으로 대답합니다"); return false; }
+}
+
+function showRun(on){
+  $("setupScreen").classList.toggle("hidden", on);
+  $("runScreen").classList.toggle("hidden", !on);
+  window.scrollTo(0, 0);
+}
+function setRunButtons(){
+  const pb = $("pauseBtn");
+  pb.classList.toggle("hidden", testing);          // 체험 중에는 나가기만
+  pb.textContent = paused ? "다시 시작" : "중지";
+  pb.classList.toggle("stop", !paused);
+}
+const tickClock = () => { $("sTime").textContent = fmt(runElapsed + (paused ? 0 : Date.now() - startAt)); };
+
+async function start(){
+  unlockSound();
+  const btn = $("startBtn");
+  btn.disabled = true;
+  paused = false; runElapsed = 0;
+  showRun(true); setRunButtons();
+  setSign("", "준비 중", "AI 얼굴인식 모델을 불러오는 중입니다");
+  try {
+    if (!window.isSecureContext) throw new Error("insecure");
+    if (!landmarker){
+      try { landmarker = await createLandmarker(); }
+      catch (e){ e.modelFail = true; throw e; }
+    }
+    await openCamera();
+    await ensureMic();
+    video.play().catch(() => {});
+    checkSound();
+  } catch (e){
+    setSign("danger", "시작하지 못했습니다", errMsg(e));
+    log("오류: " + (e && (e.message || e.name) || e));
+    btn.disabled = false;
+    showRun(false);
+    return;
+  }
+  await requestWake();
+
+  running = true; mode = "monitor";
+  startAt = Date.now(); calib = []; calibUntil = Infinity;
+  calibRetry = 0; faceStreak = 0; calibToken++;
+  count = 0; events = []; $("sCount").textContent = "0"; $("sLast").textContent = "-";   // 시작할 때마다 운행 기록 초기화
+  stage = 0; closed = false; lastVideoTime = -1; lastFaceAt = 0; basePitch = null; calibPitch = [];
+  diagCount = 0; diagInfoShown = false;
+  log("── 새 운행 시작 ──");
+  introFlow(calibToken);
+
+  btn.disabled = false;
+  $("sTime").textContent = "00:00";
+  clockTimer = setInterval(tickClock, 1000);
+  const roll = +$("roll").value;
+  if (roll) rollTimer = setInterval(() => { if (mode === "monitor" && !closed) wakeCheck("roll"); }, roll * 60 * 1000);
+  requestAnimationFrame(loop);
+}
+
+function stop(){
+  const wasPaused = paused;
+  paused = false;
+  running = false; mode = "idle"; alertSpeaking = false; calibPhase = "none";
+  if (testing) cancelTest();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video.srcObject = null;
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  clearInterval(clockTimer); clearInterval(rollTimer);
+  flash(false);
+  showRun(false);
+  setSign("", "대기 중", "아래 설정을 확인하고 시작을 누르세요");
+  if (!wasPaused || count) log(`감지 종료 (졸음 감지 ${count}회)`);
+}
+
+/* ---------- 일시 중지 / 다시 시작 ---------- */
+function pause(){
+  if (!running || testing) return;
+  silenceAll();
+  running = false; paused = true; pausedAt = Date.now();
+  runElapsed += Date.now() - startAt;
+  if (calibPhase !== "done") calibPhase = "none";   // 측정 중에 멈췄으면 다시 시작할 때 측정부터
+  mode = "paused"; stage = 0; closed = false; flash(false);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null; video.srcObject = null;
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+  clearInterval(clockTimer); clearInterval(rollTimer);
+  tickClock();
+  setSign("", "일시 중지", "다시 시작을 누르면 이어서 감지합니다");
+  log("일시 중지");
+  setRunButtons();
+}
+async function resume(){
+  unlockSound();
+  const pb = $("pauseBtn"); pb.disabled = true;
+  try {
+    await openCamera();
+  } catch (e){
+    setSign("danger", "카메라를 켜지 못했습니다", "나가기 후 다시 시작해 주세요");
+    pb.disabled = false; return;
+  }
+  await requestWake();
+  const longBreak = Date.now() - pausedAt > 5 * 60 * 1000;
+  paused = false; running = true; mode = "monitor";
+  startAt = Date.now(); lastVideoTime = -1; lastFaceAt = 0; stage = 0; closed = false;
+  clockTimer = setInterval(tickClock, 1000);
+  const roll = +$("roll").value;
+  if (roll) rollTimer = setInterval(() => { if (mode === "monitor" && !closed) wakeCheck("roll"); }, roll * 60 * 1000);
+  pb.disabled = false; setRunButtons();
+  if (longBreak || calibPhase !== "done"){
+    // 5분 넘게 쉬었거나 측정이 끝나지 않았으면 측정부터 다시
+    log(longBreak ? "다시 시작 · 5분 넘게 멈춰서 다시 측정" : "다시 시작 · 측정부터 다시");
+    calib = []; calibUntil = Infinity; calibRetry = 0; faceStreak = 0; calibToken++;
+    basePitch = null; calibPitch = [];
+    introFlow(calibToken);
+  } else {
+    log("다시 시작");
+    monitoring();
+    playSnd("chime");
+    setTimeout(() => speak("감지를 다시 시작합니다."), 900);
+  }
+  requestAnimationFrame(loop);
+}
+
+// 체험하기: 카메라로 실제 눈 감김을 감지하는 과정을 짧게 체험 (문제 1회, 최대 20초 대기)
+async function experience(){
+  if (testing){ cancelTest(); return; }      // 체험 중 다시 누르면 중지
+  if (mode === "check") return;
+  unlockSound();                             // 버튼 누른 순간 소리 잠금 해제
+  testing = true; demoFinished = false; demoStarted = false;
+  $("testBtn").textContent = "체험 중지";
+  log("체험 시작");
+  if (!running){
+    demoStarted = true;                      // 감지 중이 아니면 체험용으로 시작
+    await start();
+    if (!testing){ if (running) stop(); return; }
+    if (!running){ testing = false; demoStarted = false; $("testBtn").textContent = "체험하기"; return; }
+  }
+  while (testing && performance.now() < calibUntil + 300) await sleep(100);   // 기준값 측정 대기
+  if (!testing) return;
+  setSign("warn", "체험 중", "눈을 3초간 감아 보세요");
+  // 방금 작동 확인을 거쳤다면 안내가 이미 나왔으므로 생략, 감지 중에 누른 경우에만 안내
+  if (!demoStarted) await speak("이제 졸음 상황을 체험해 볼게요. 눈을 3초간 감아 보세요.");
+  let t0 = Date.now(), seen = false, hinted = false;
+  while (testing && !demoFinished){
+    await sleep(200);
+    if (stage >= 1) seen = true;
+    if (seen && stage === 0 && !closed && mode === "monitor" && !hinted){
+      hinted = true; t0 = Date.now();
+      setSign("warn", "체험 중", "조금 더 길게 감아보세요");
+      speak("조금 더 길게 감아보세요.");
+    }
+    if (mode !== "check" && stage === 0 && Date.now() - t0 > 20000){
+      log("눈 감김이 감지되지 않음");
+      break;
+    }
+  }
+  if (!testing) return;
+  await speak(demoFinished ? "체험을 마칩니다." : "눈 감김이 감지되지 않았습니다. 체험을 마칩니다.");
+  if (!testing) return;
+  testing = false;
+  $("testBtn").textContent = "체험하기";
+  log("체험 종료");
+  if (demoStarted){ demoStarted = false; stop(); }
+  else { mode = "monitor"; monitoring(); }
+}
+function cancelTest(){
+  testing = false;
+  silenceAll();
+  $("testBtn").textContent = "체험하기";
+  stage = 0; closed = false;
+  log("체험 중지");
+  if (demoStarted){ demoStarted = false; stop(); return; }
+  if (running){ mode = "monitor"; monitoring(); }
+  else { mode = "idle"; setSign("", "대기 중", "아래 설정을 확인하고 시작을 누르세요"); }
+}
+
+$("enterBtn").addEventListener("click", () => {
+  if (ANDROID_NOT_CHROME){
+    // 화면 위쪽에 안내를 먼저 보여주고, 1초 뒤 크롬 선택 창 열기 (시작 화면은 그대로 유지)
+    $("chromeGuide").classList.remove("hidden");
+    const intent = `intent://${location.host}${location.pathname}?go=1#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(location.origin + location.pathname + "?nochrome=1")};end`;
+    setTimeout(() => { location.href = intent; }, 1000);
+    return;
+  }
+  unlockSound();   // 버튼 누른 순간 소리 재생 허락
+  $("landing").classList.add("hidden");
+  ensureMic().then(() => { lastMicEndAt = performance.now(); }).catch(() => {});   // 마이크 권한을 미리 받아, 안내 음성이 나올 때 소리 설정이 바뀌지 않게
+});
+$("startBtn").addEventListener("click", () => { if (!running) start(); });
+$("pauseBtn").addEventListener("click", () => paused ? resume() : pause());
+$("exitBtn").addEventListener("click", () => { if (testing) cancelTest(); else stop(); });
+$("testBtn").addEventListener("click", experience);
+// 다른 앱(내비 등)으로 넘어가거나 화면이 꺼지면 브라우저가 카메라를 멈춤 → 돌아오면 자동 복구
+document.addEventListener("visibilitychange", async () => {
+  note(document.visibilityState === "hidden" ? "화면 벗어남" : "화면 돌아옴");
+  if (!running) return;
+  if (document.visibilityState === "hidden"){
+    log("화면을 벗어나 감지가 일시 중지됨 · 이 화면을 켜둔 상태에서만 작동합니다");
+    return;
+  }
+  if (navigator.wakeLock && !wakeLock) await requestWake();
+  checkSound();
+  try {
+    const ended = !stream || stream.getVideoTracks().every(t => t.readyState === "ended");
+    if (ended){
+      await openCamera();
+    }
+    await video.play();
+    closed = false; stage = 0; lastFaceAt = 0; flash(false);
+    if (calibPhase !== "done"){ calibToken++; calibRetry = 0; calibPhase = "warmup"; warmupUntil = performance.now() + 1500; setSign("warn", "다시 측정합니다", "정면을 봐 주세요"); }
+    else monitoring();
+    log("감지 재개");
+  } catch (e){
+    setSign("danger", "카메라가 멈췄습니다", "중지 후 다시 시작해 주세요");
+    log("카메라 재시작 실패: " + (e && (e.message || e.name) || e));
+  }
+});
+if ("speechSynthesis" in window) speechSynthesis.getVoices();
+</script>
+</body>
+</html>
