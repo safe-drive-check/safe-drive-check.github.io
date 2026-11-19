@@ -681,6 +681,13 @@ function registerEvent(){
 }
 
 /* ---------- 얼굴인식 ---------- */
+// AI 모델은 사이트에 들어오자마자 뒤에서 미리 받아 둠 (시작 버튼 누를 때 기다리지 않게)
+let modelPromise = null;
+function preloadModel(){
+  if (landmarker) return Promise.resolve(landmarker);
+  if (!modelPromise) modelPromise = createLandmarker().then(l => (landmarker = l)).catch(e => { modelPromise = null; throw e; });
+  return modelPromise;
+}
 async function createLandmarker(){
   const { FaceLandmarker, FilesetResolver } = await import(TV_URL);
   const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
@@ -1057,14 +1064,16 @@ async function start(){
   btn.disabled = true;
   paused = false; runElapsed = 0;
   showRun(true); setRunButtons();
-  setSign("", "준비 중", "AI 얼굴인식 모델을 불러오는 중입니다");
+  setSign("", "준비 중", "카메라 사용을 허용해 주세요");
   try {
     if (!window.isSecureContext) throw new Error("insecure");
-    if (!landmarker){
-      try { landmarker = await createLandmarker(); }
-      catch (e){ e.modelFail = true; throw e; }
-    }
+    // 카메라 허용 창을 바로 띄우고, AI 모델은 동시에 준비 (미리 받아 둔 게 있으면 바로 사용)
+    const modelP = landmarker ? Promise.resolve(landmarker) : preloadModel();
+    modelP.catch(() => {});
     await openCamera();
+    if (!landmarker) setSign("", "준비 중", "AI 얼굴인식 준비 중 · 처음 한 번만 몇 초 걸려요");
+    try { await modelP; }
+    catch (e){ e.modelFail = true; throw e; }
     await ensureMic();
     video.play().catch(() => {});
     checkSound();
@@ -1254,6 +1263,9 @@ document.addEventListener("visibilitychange", async () => {
   }
 });
 if ("speechSynthesis" in window) speechSynthesis.getVoices();
+
+// 페이지가 뜨고 잠시 뒤 AI 모델 미리 받기 시작
+if (window.isSecureContext) setTimeout(() => { preloadModel().catch(() => {}); }, 500);
 </script>
 </body>
 </html>
